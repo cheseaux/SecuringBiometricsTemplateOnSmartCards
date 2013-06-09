@@ -1,0 +1,661 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[latin1]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{placeins}
+\usepackage{textpos}
+\usepackage{multirow}
+\usepackage{pifont}
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{chngcntr}
+
+\usepackage{bbding}
+\usepackage{color}
+\usepackage{booktabs}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage{array}
+\usepackage{booktabs, multicol, multirow}
+
+\usepackage[stable]{footmisc}
+\usepackage{upgreek} % For Greek letters in math mode
+\usepackage{verbatim} % For code
+\usepackage{fancyvrb} % To decrease the size of the code in verbatim mode
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{subfigure} % For subfigures
+\usepackage{multicol} % For columns
+\usepackage{epstopdf} % For converting eps to pdf
+\usepackage{bbm} % 
+\usepackage{float}
+\usepackage{program}
+\usepackage{pifont}
+\restylefloat{figure}
+\usepackage{rotating}
+\usepackage{epsfig}
+\usepackage[raggedright]{titlesec}
+
+\titleformat{\paragraph}[hang]{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}{0pt}{3.25ex plus 1ex minus .2ex}{0.5em}
+
+\usepackage{booktabs}
+\setlength{\heavyrulewidth}{1.5pt}
+\setlength{\abovetopsep}{4pt}
+
+%\usepackage{algorithm2e}
+%\usepackage[linesnumbered]{algorithm2e}
+%\usepackage[linesnumbered,ruled]{algorithm2e}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage{algpseudocode}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel} % English document
+\usepackage{url}
+\usepackage{fullpage} % Margin enlargement
+\setlength{\headsep}{30pt} % header
+\setlength{\footskip}{27pt} % footer
+%\setcounter{tocdepth}{2} For the table of contents
+
+% Headers and footers
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\setcounter{secnumdepth}{5}
+
+\newcommand*\justify{%
+  \fontdimen2\font=0.4em% interword space
+  \fontdimen3\font=0.2em% interword stretch
+  \fontdimen4\font=0.1em% interword shrink
+  \fontdimen7\font=0.1em% extra space
+  \hyphenchar\font=`\-% allowing hyphenation
+}
+
+
+\lhead{Securing Biometric Templates On Smart Cards}
+\rhead{Jonathan Cheseaux}
+\renewcommand{\headrulewidth}{0.5pt}% separation line
+\pagestyle{fancy}
+
+% sets leading space for paragraphs
+\parindent=0pt
+
+\author{Jonathan Cheseaux}
+
+\begin{document}
+\pagestyle{fancy}
+\begin{center}
+{\includegraphics[scale = 0.2]{./epfl_logo.png}}\\
+\end{center}
+
+\vspace{3cm}
+
+\begin{center}
+\thispagestyle{empty}
+{\huge\bf Securing Biometric Templates On Smart Cards }\\
+
+\vspace{2cm}
+\LARGE Master semester project report - Spring 2013\\
+\normalsize Jonathan CHESEAUX (jonathan.cheseaux@epfl.ch)
+
+\vspace{10cm}
+Supervisors : Andrzej Drygajlo - Leila Mirmohamadsadeghi \\
+\end{center}
+
+\clearpage\mbox{}\clearpage
+\thispagestyle{empty}
+\newpage
+\tableofcontents
+\thispagestyle{empty}
+\newpage
+\section{Introduction}
+With the rise of identity thefts, one's main concern, when storing personal biometric data on a portable medium, is privacy protection. The use of such devices leads to important security issues since the impact of an attacker stealing this sensitive data can be really devastating for the victim.
+\\\\
+The main purpose of this project is to investigate the feasibility of fingerprint matching on a smart card. To be more secured, the matching has to be on-card exclusively, i.e. no data should leave the card for obvious security reasons, and the sensitive information stored should not lead to the original fingerprint features.
+\\\\
+In this report, the approach taken to implement a secure and reliable system using the Java Card\footnote{Java Card 2.2 is a programming development kit well suited for smart card programming} programming platform is detailed, as well as the results of performance and security analysis of the final implementation.
+
+\newpage
+\section{Background}
+\subsection{Recognition chain}
+\subsubsection{Minutiae Cylinder-Code (\texttt{MCC})}
+The main concern while dealing with fingerprint recognition is the fact that it is impossible to get two fingerprints impressions from the same user that are completely identical. Indeed, different factors can alter the fingerprint quality, such as finger pressure, sweat, orientation, etc. To overcome this issue, [R. Cappelli, M. Ferrara and D. Maltoni] developed a powerful algorithm which can describe fingerprints' minutiae in a fashion that tolerates feature extraction imprecisions or errors \cite{mcc:2010}.
+\\\\
+This algorithm, so called Minutia Cylinder-Code (\texttt{MCC}), produces fixed-size descriptors from a fingerprint impression by analysing local structures around each minutia. It describes neighbouring minutia angular direction and distances from one another and represents this information as a cylinder (orientation defines the height of this cylinder, and distance from neighbours defines its base). The main advantages of such an algorithm are that it is computationally efficient (due to the fixed-size nature of minutiae descriptors), robust against feature extraction errors (due to noisy impressions) and does not depend on finger orientation or distortion. The produced template is a set of minutiae descriptors, consisting of floating-point values, and its length is 2048 values per descriptor.
+
+\subsubsection{Template transformation}
+The descriptors produced by the original \texttt{MCC} algorithm are not irreversible \cite{cancel:2011} nor revocable \cite{MD13}. For complete privacy protection the descriptors need to be transformed. The solution chosen in the implementation of this project for protecting a biometric template is given in \texttt{Algorithm \ref{alg:transf}} \cite{MD13}. It uses a key of length 2048 consisting of a random permutation of all integers from 0 to 2047. A non-invertible function \texttt{(line 6 - Algorithm \ref{alg:transf})} is applied on the cylinder values two-by-two and the result is then binarized (\texttt{lines 7-10}) by using a specific cut-off value. The resulting template contains descriptors of length 1024 bits\footnote{Since the non-invertible function used in the Algorithm \ref{alg:transf} combines two randomly chosen values in the descriptor, its length will be divided by two. A protected template only contains 0's or 1's (due to the binarization) and it is easily implemented on a computer by storing 128 bytes of data per descriptor}. This transformation prevents an attacker from extracting the original fingerprint impression and permits to implement revocable templates since each protected template is unique given a certain key.
+
+\begin{figure}[h]
+\scalebox{0.95}{
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Biometric template privacy protection}
+
+	\KwIn{$D$ (a set of minutia descriptors $\langle T_1, T_2, \ldots, T_n \rangle$)}
+	\KwIn{$H$ (the encryption key)}
+	\KwOut{$P$ (the transformed template)}
+	$P \gets (0, 0, \ldots, 0) $;\\
+	$index \gets 0$;
+	$A \gets 5000$;
+	$threshold \gets 10^5$;\rcomment{$\setminus\setminus$\textit{Tuning parameters}}\\
+	\For{each descriptor $T$ in $D$} {
+		\For{$i \gets 0$ \textbf{to} length($T$)} {
+        	\If{$i$ \textbf{even}} {
+        		$p \gets (A* (T[H[i]] + T[H[i+1]]))^2 $ \textbf{mod} n $ $\;
+        		\If{$p > threshold$} {
+        			$P[index] \gets 1$\;
+        		} \Else {
+        			$P[index] \gets 0$\;
+        		}
+        		$index \gets index+1 $;
+        	}
+        }
+    }
+    
+\end{algorithm}
+\caption{Biometric template privacy protection}
+\label{alg:transf}
+}
+\end{figure}
+
+\begin{figure}[!h]
+\scalebox{0.95}{
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\caption{Local similarity sort}
+	\SetKwInOut{Input}{input}  
+\Input{
+	$P1$, enrolment protected template $\langle P_1^{(1)}, P_1^{(2)}, \ldots, P_1^{(n)} \rangle$\\
+	$P2$, verification template $\langle P_2^{(1)}, P_2^{(2)}, \ldots, P_2^{(n)} \rangle$\\
+	$M1$, enrolment minutiae directions $\langle M_1^{(1)}, M_1^{(2)}, \ldots, M_1^{(n)} \rangle$\\
+	$M2$, verification minutiae directions $\langle M_2^{(1)}, M_2^{(2)}, \ldots, M_2^{(n)} \rangle$\\	
+	$delta$, threshold
+}
+	\KwOut{$score$, the matching score between 0.0 and 1.0}
+	
+	$index \gets 0$\;
+	$gamma \gets (0, 0, \ldots, 0)$\;
+    
+    $minNP \gets 3$;
+	$maxNP \gets 10$;  
+	$muP \gets 30$; 
+	$tauP \gets 0.4$;
+	\rcomment{$\setminus\setminus$\textit{Tuning parameters}}\\ 
+    
+	\For{$i \gets 1$ \textbf{to} $n$} {
+		\For{$j \gets 1$ \textbf{to} $n$} {
+        	$norm \gets \| P_1^{(i)}\| + \| P_2^{(j)}\| $\;
+        	\If{angularDiff$(M_1^{(i)}, M_2^{(j)}) \leq delta $} {
+        		$gamma[index] \gets \frac{1.0 - \| \text{hammingDistance} (P_1^{(i)}, P_2^{(j)}) \|}{norm} $\; 
+        		$index = index + 1$\;
+        	}
+        }
+    }
+	$\textbf{sort}(gamma)$\;	
+	
+	$z \gets (1+\exp(-tauP*(n-muP)))$\;
+	$nP \gets minNP + \lfloor(z*(maxNP-minNP))\rfloor$\;
+	$sum \gets 0$\;
+	\For{$i \gets 0$ \textbf{to} $nP$} {
+		$sum = sum + gamma[i]$\;
+	}
+	\Return $sum / nP$ 
+	
+\end{algorithm}
+\caption{Local similarity sort}
+\label{alg:lss}
+}
+\end{figure}
+\FloatBarrier
+
+\subsubsection{Template matching}
+The \texttt{LSS} matching algorithm, described in \texttt{Figure \ref{alg:lss}}, compares the distance\footnote{In this project, the  distance computed is the Hamming distance (since binary data are used)} of all two by two cylinders and produces a similarity score\footnote{The score is a real number between 0.0 (no match) and 1.0 (perfect match)} based on angular distances of minutiae pairs. These distances are invariant, even after the templates are transformed using a key, but of course it differs if the fingerprints do not come from the same user or the transformation key used to protect the enrolment template and the one used to protect the verification template are not identical.\\
+\subsection{Using smart cards for recognition}
+Smart cards are pocket-sized cards provided with an embedded \texttt{CPU} and a small data storage unit. They are currently used in many different fields such as health care (Carte Vitale\footnote{"Carte Vitale" is a french health insurance card}), finance (credit/debit cards), facilities entrance control, mobile phone (\texttt{SIM}\footnote{"Subscriber Identity modules" (\texttt{SIM}s) are used in mobile telephony devices for authentication and ciphering}), \texttt{IT} security and many more.
+\\\\
+The key advantages of smart cards are security, portability and ease of use and since their invention in the late 1960s, their market share has exploded. Currently, there are over 7 billions smart cards produced per year\footnote{Eurosmart annual market study on global smart card shipments - http://www.smartcardalliance.org/pages/smart-cards-intro-market-information} and this number is growing more and more each year.
+\subsubsection{Smart card specifications}
+The limited size of the embedded chip implies low hardware performance. Not every Java card share the same characteristics and the actual tendency is to use next generation cards\footnote{Java Card 3 - http://www.oracle.com/technetwork/articles/javase/javacard3-142122.html} which are more powerful and can contain a larger amount of data, thanks to computer technology miniaturization. \texttt{Table \ref{smartprefs}} shows a comparison between Java Card 2.2 and Java Card 3.0 specification.
+
+\begin{table}[H]
+
+  \centering
+  
+    \begin{tabular}{lcc}
+    \toprule
+    & \textbf{Java Card 2.2} & \textbf{Java Card 3.0} \\
+    \midrule
+    \textbf{byte, short} & \Checkmark   & \Checkmark \\
+    \textbf{int, long, char, String} & \XSolidBrush    & \Checkmark \\
+    \textbf{Threads} & \XSolidBrush    & \Checkmark \\
+    \textbf{Garbage collection} & \XSolidBrush    & \Checkmark \\
+    \textbf{Networking} & \XSolidBrush    & \Checkmark \\
+    \textbf{2D Arrays} & \XSolidBrush    & \Checkmark \\
+    \textbf{CPU} & 8-bit CPU & 32-bit CPU \\
+    \textbf{RAM} & 8kB of RAM & 24kB of RAM \\
+    \bottomrule
+    \end{tabular}%
+   
+ \caption{Comparison of Java Card 2.2 and Java Card 3.0}
+  \label{smartprefs}
+\end{table}%
+
+
+\subsubsection{Communication protocol}
+The smart cards and the card reader (so called Card Acceptance Device or \texttt{CAD}) exchange messages using  Application Protocol Data Units (\texttt{APDU}). The structure of these messages is defined by \cite{isocard}. \texttt{Table \ref{tab:apducmd}} and \texttt{Table \ref{tab:apduresp}} highlight the different fields of such messages.
+\\\\
+There is two types of \texttt{APDU} messages : the \texttt{APDU} requests, which are sent from the \texttt{CAD} to the smart card and the \texttt{APDU} responses which are sent from the card to the \texttt{CAD}. In \texttt{APDU} requests, the mandatory fields are \texttt{CLA}\footnote{Instruction class - indicates the type of command}, \texttt{INS}\footnote{Instruction code - indicates a specific command, e.g. "enrol minutiae", "match", ...}, \texttt{P1} and \texttt{P2}\footnote{Instruction parameters for the command}. The optional fields are \texttt{Lc}\footnote{Data field length (in bytes)}, \texttt{Data field}\footnote{Data to be sent to the card} and finally \texttt{Le}\footnote{Maximum number of response bytes expected}.
+\\As for the response \texttt{APDU}, there are only 2 mandatory fields, \texttt{SW1, SW2}\footnote{Response code, for example 90 00 indicates success of the transaction} and one optional field for sending data to the \texttt{CAD}.
+\\\\
+
+
+In this project, the command instructions (\texttt{CLA}) are arbitrarily defined as shown in \texttt{Table \ref{tab:clas}}. The two last instructions (matching initialization and card resetting) are sent in \texttt{APDU} requests by the card acceptance device using an empty data field.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|l|}
+  \hline
+  \multicolumn{4}{|l|}{\textbf{Mandatory header}} & \multicolumn{3}{|l|}{\textbf{Optional body}} \\
+  \hline
+  CLA & INS & P1 & P2 & Lc & Data field & Le \\
+  \hline
+\end{tabular}
+\caption{Command \texttt{APDU} structure}
+\label{tab:apducmd}
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+  \hline
+  \textbf{Optional body} & \multicolumn{2}{|c|}{\textbf{Mandatory trailer}} \\
+  \hline
+  Data field & SW1 & SW2 \\
+  \hline
+\end{tabular}
+\caption{Response \texttt{APDU} structure}
+\label{tab:apduresp}
+\end{table}
+\newpage
+\subsubsection{Smart card simulator}
+A smart card simulator is embedded in the Java Card Workstation Development Environment (\texttt{JCWDE} \cite{jcwde}), it allows the developer to test the applet throughout its development process. This tool basically emulates a smart card by listening to a communication socket and replies to \texttt{APDU} requests with \texttt{APDU} responses, as does a real smart card when linked to a card acceptance device.\\\\
+Unfortunately, this tool does not provide debugging commands, is not verbose at all and the only way of troubleshooting problems is by sending \texttt{APDU} requests and analysing \texttt{APDU} responses, if any are received. These constraints were really time-consuming and made it difficult to develop the fingerprint matching process.\\\\
+Nevertheless, the first implementations were made with the original Java Runtime in order to offer more debugging functions. This early version of the project respected the Java Card \texttt{API} limitations (no floating-points, no 32-bits integers) but permitted to print values in a console and use the Java Debugger to inspect the code. Despite this advantage, it was really challenging to switch to the Java Card environment. 
+
+\begin{table}[!htbp]
+\centering
+\begin{tabular}{|l|l|}
+  \hline
+  \textbf{\texttt{CLA} code} & \textbf{Corresponding instruction} \\
+  \hline
+  0x01 & Load verification template\\
+   \hline
+  0x02 & Load verification minutiae\\
+   \hline
+  0x03 & Unroll user's template\\
+   \hline
+  0x04 & Unroll user's minutiae\\
+   \hline
+  0x05 & Initiate fingerprint matching\\
+   \hline
+  0x06 & Reset the card\\
+  \hline
+\end{tabular}
+\FloatBarrier
+
+\caption{\texttt{CLA} codes for the project}
+\label{tab:clas}
+\end{table}
+
+
+
+\subsubsection{Java Card programming environment}
+The first challenge encountered in this project was to deal with a restrictive Java development kit, namely Java Card, in order to implement the matching on the smart card. Indeed, in order to run a software on a smart card that is not provided with a powerful \texttt{CPU} nor large data storage units, the Java Virtual Machine (\texttt{JVM}) implemented on the chip must be limited to the most necessary features. The main difficulty was to overcome the limited \texttt{API} provided by this library.
+
+\paragraph{Library limitations}
+\label{limitations}
+Only a small portion of the original \texttt{JVM} is installed on a smart card chip. The provided Java Card \texttt{JVM} forbids the use of advanced types such as 32-bits integers, floating-point values or characters. On the other hand, it provides 16-bits integers (Short), boolean, bytes and utility methods to handle byte to short conversion (and vice versa), deep copy arrays and others.
+\\\\
+The major consequence of not being able to use 32-bits integers and using 16-bits integers instead, is that the maximum integer value that can be represented is 32767 and no array of more than 32767 elements can be built. This is not really a problem for the project since only 128 bytes per minutia descriptor are needed and the fingerprint feature extraction results in no more than 60 minutia \footnote{For 60 minutiae, $ 128 * 60 = 7680 $ bytes of data need to be stored}.\\
+\newpage
+
+\section{Materials and methods}
+To have a completely secure system, no sensitive data should flow out of the smart card. An on-card matching technique ensures that data only enters the smart card and no sensitive data is shared with the card reader. When a user wants to unlock a secure feature of the smart card, he needs to scan his fingerprint and its impression is first transformed, then sent to the smart card along with its minutiae angular directions. The smart card then applies the \texttt{LSS} algorithm by comparing these data to the enrolled fingerprint. If the matching score is high enough, the smart card can, for example, deliver a decryption key or a secured asset stored on the card to the user.
+\subsection{Hardware}
+
+
+
+
+\subsubsection{Set-up connection to the card (simulator)}
+In order to test the application, a smart card acceptance device needs to be emulated by using the \texttt{JCWDE} utility tool. A Java Card applet is selected and identified by its application identifier (\texttt{AID}). It is also necessary to provide the package name in the project hierarchy.
+\\\\
+For example, in this project, the simulator can be launched by opening a Windows command console and typing \texttt{jcwde <config\_file\_location>} where \texttt{\justify <config\_file\_loca-tion>} is the path to a file containing the package name and its associated \texttt{AID}\footnote{In this project, the config file contains the following instruction : \\ \texttt{monpackage.MonApplet 0x01:0x02:0x03:0x04:0x05:0x06:0x07:0x08:0x09:0x00:0x00} \\ This file should be located in the same directory as the package}. The simulator is now listening for connections on a defined port in the local-host network.
+\\\\
+Now that the simulator is working, the connection with the \texttt{CAD} is initiated by running the file \texttt{JavaCardReader.java} (\texttt{Figure \ref{javacardreader}}) in the project \texttt{\justify CardAcceptanceDevice}. The connection to the simulator is done by a \texttt{TCP} socket connecting to the local server socket of the simulator.
+\\\\
+Once the connection is made, it is still necessary for the card reader to select and run the applet on the smart card. It is done by setting the \texttt{INS} field of the \texttt{APDU} request to \texttt{0xA4} and the \texttt{Data} field to the application \texttt{AID} : \texttt{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x00, 0x00} and sending it to the card.
+
+\begin{table}[h]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{|l|l|l|l|l|l|l|}
+  \hline
+  \textbf{CLA} & \textbf{INS} & \textbf{P1} & \textbf{P2} & \textbf{Lc} & \textbf{Data field}\\
+  \hline
+  0x00 & 0xA4 & 0x04 & 0x00 & 0xA0 & 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x00 0x00 \\
+  \hline
+\end{tabular}
+}
+\caption{Command \texttt{APDU} content for the applet selection}
+\label{tab:apducmd:matching}
+\end{table}
+
+\subsubsection{Data transfer to the card}
+Once the connection is established, the user's template and minutiae are enrolled. Since a transformed template can contain a lot of data\footnote{Recall that a protected template is a collection of minutia descriptors, each descriptor contains 128 bytes of information and there can be up to 60 minutiae extracted from a fingerprint.}, it has to be broken into several chunks to respect the \texttt{APDU} requests size limit (255 bytes). In order to keep track of the packet numbers, the \texttt{P1} and \texttt{P2} fields of the request are used to indicate the current packet number sent. On the Java Card side, it simply fills a byte-array, chunk by chunk, with the received bytes (see \texttt{Figure \ref{card}}).
+\\\\
+The enrolment should be done only once. In a real life scenario, this can be done at a bank's premises for example, where fingerprints of the customer are acquired, transformed with a unique key and loaded on the smart card. When the customer wants to authenticate with his smart card, he simply inserts it in a card acceptance device and scans his fingerprint. The card reader then transforms the currently scanned finger impression and loads it in the card along with the minutiae angular directions. This transfer is done in the exact same way as the enrolment process.
+
+\begin{table}[h]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{|c|c|c|c|c|c|c|}
+  \hline
+  \textbf{CLA} & \textbf{INS} & \textbf{P1} & \textbf{P2} & \textbf{Lc} & \textbf{Data field}\\
+  \hline
+  0x00 & 0x03 & \multicolumn{2}{|l|}{Packet number} & Packet size & Packet content \\
+  \hline
+\end{tabular}
+}
+\caption{Command \texttt{APDU} content for enrolling a user's template}
+\label{tab:apducmd:enroll}
+\end{table}
+
+\subsection{Software}
+\subsubsection{\texttt{LSS} algorithm for Java Card environment}
+\label{section:lss}
+One of the great challenge and certainly the main goal of this project was to translate the fingerprint matching algorithm to the Java Card specification. As said before, the absence of floating-points numbers was a real inconvenience since there are numerous complex computations involved in \texttt{Algorithm \ref{alg:lss}}. For example, lines 11-12 of this algorithm can simply not be computed with integer numbers, since precision losses are too much important. The chosen workaround is to pre-compute these formulas for every possible number of minutiae and round the results at the end of the computations, so that the precision loss is smaller. These results are stored in a lookup table in the Java Card part of the application.\\\\
+This solution is not sufficient since there are still integers divisions in the algorithm that can lead to floating-points values, but this problem is overcome by multiplying floating-point values in a given formula by a constant. For example, to compute 
+$ \frac{\pi * 0.035}{1.45} \approx 0.0758315 $, the denominator and the numerator are multiplied by a constant, say 10'000 : 
+$ \frac{31415 * 350}{14500} = 758$. Once out of the smart card, the result is simply divided by 10'000, giving an approximation of the result, here : $0.0758$. Of course this approximation results in a loss of precision, but as it is seen later in the Section \ref{std}, this precision loss is not a sensible problem for the matching algorithm. To find the best value for this threshold, several tests using different values are conducted. By printing the false match rates (\texttt{FMR})\footnote{The \texttt{FMR} also called {False Acceptance Rate (\texttt{FAR})} denotes the likelihood that the access is granted for an imposter} and the false non-match rates (\texttt{FNMR})\footnote{The \texttt{FNMR} also called {False Rejection Rate (\texttt{FRR})} denotes the likelihood that the access is denied for a genuine user} for different threshold values, the value giving the best results appears to be 1550 (see \texttt{Figure \ref{threshold}}). The matching score is thus be between 0 and 1550.
+
+\begin{table}[h]
+\centering
+\scalebox{1.0}{
+\begin{tabular}{|c|c|c|c|c|c|c|}
+  \hline
+  \textbf{CLA} & \textbf{INS} & \textbf{P1} & \textbf{P2}\\
+  \hline
+  0x00 & 0x05 & 0x00 & 0x00\\
+  \hline
+\end{tabular}
+}
+\caption{Command \texttt{APDU} content for initiating matching process}
+\label{tab:apducmd:mach}
+\end{table}
+
+Concerning the minutia angular directions, radians are not convenient because of the same precision issue explained before, so degrees are used instead. This does not affect the result but the feature extraction part of the project is modified in order to produce minutiae angular directions in degrees.
+
+\subsubsection{How to use the developed program}
+\begin{enumerate}
+  \item Start the smart card simulator (\texttt{JCWDE})
+  \begin{enumerate}
+  	\item Open a Windows command console in the SmartCardDevice/bin directory
+  	\item Type : \texttt{jcwde -p <portNumber> monapplet.app}\\
+  	 The option \texttt{- p <portNumber>} is not required. It defines which port the simulator will be listening to.
+  	\item Press \texttt{RETURN} and the simulator will start
+  \end{enumerate}
+  \item Launch the CardAcceptanceDevice Java project
+  \begin{enumerate}
+  	\item Open a new Windows command console in the JavaCardReader directory.
+  	\item Type : \texttt{\justify java -jar javacardreader.jar <enrollTemplate> <VerificationTemplate> <saveFolder> <portNumber> <differentKey>}
+  	\begin{itemize}
+  		\item \texttt{<enrollTemplate>} is the file location of the enrolment fingerprint picture
+  		\item \texttt{<verificationTemplate>} is the file location of the verification fingerprint picture
+  		\item \texttt{<saveFolder>} is the folder in which the matching score will be stored
+  		\item \texttt{<portNumber>} is the port number listened by the simulator.
+  		\item \texttt{<differentkey>} 0 = same key, 1 = different key for verification and enrolment template transformation
+  	\end{itemize}
+  	\item Press RETURN and the program starts
+  \end{enumerate}
+  \item The score is printed in the console along with other information and is also saved in the chosen directory in a .csv file
+\end{enumerate}
+
+\begin{figure}
+    \center
+    \includegraphics[scale=0.8]{./figures/jcwde}
+    \caption{\texttt{JCWDE} Simulator listening for a connection}
+\end{figure}
+\newpage
+
+\section{Results}
+\label{results}
+By using workarounds to respect the Java Card limitations, poor results were expected. However, the accuracy of the on-card matching implementation is surprisingly encouraging, as explained in the subsections below.
+\subsection{Test database}
+Three different databases \cite{fvc2000}\cite{fvc2002}\cite{fvc2004} are used for parameter tuning and testing the accuracy of the on-card matching. These databases are provided by the Fingerprint Verification Competition (\texttt{FVC})\footnote{https://biolab.csr.unibo.it/fvcongoing/UI/Form/Home.aspx}, an international competition where industrial, universities and independent developers test the accuracy of their recognition algorithms. These databases contain impressions of several users' fingers (8 fingerprints per user) and even synthetic fingerprints \cite{synthetic}. The quality of the impressions can vary a lot between users due to rotation, displacement, wet/dry impressions, age of the users, etc.\\\\
+The databases are preprocessed with FingerJetFX\footnote{http://www.digitalpersona.com/fingerjetfx/}, an open-source program that performs minutiae extraction from a fingerprint scan.\\\\
+Every results presented in this report are computed from the entire \texttt{FVC 2004 - DB1} database. To compute the genuine scores, the 8 fingers' impression of a user are matched together. For the imposter scores, several users are randomly chosen from the database and matched against all the other users.
+
+\subsection{Imposters/Genuine scores}
+A graphic way to test the performance of the developed program is by computing the genuine and imposter scores histogram. For genuine scores, one user's fingerprint is enrolled on the card and is then matched against the seven remaining finger impressions of this user. The key used for enrolment template protection is the same for each transformation of the seven other impressions.\\\\
+To compute imposter scores, one user's fingerprint is chosen and matched against other users'. Two scenario are also distinguished : in the first scenario ("unknown key"), the imposter does not know which key was used for the enrolment template protection, so he generates one at random. In the second scenario ("stolen key"), it is assumed that the imposter can extract the transformation key from the smart card.
+
+\subsubsection{Original recognition algorithm}
+\texttt{Figure \ref{tab:original_genuine}} shows that the separation between the genuine scores and the imposter scores becomes slightly smaller if the attacker can extract the template transformation key but class separation still remains noticeable.
+
+\begin{figure}[!htbp]
+\centering
+  \includegraphics[width=7cm,height=5cm]{./figures/mcc_original_histo/genknown_impunknown.jpg}
+  \includegraphics[width=7cm,height=5cm]{./figures/mcc_original_histo/genknown_impknown.jpg}\\
+  
+\caption{Original matching - Histograms of imposters \textcolor{red}{(\textbf{red})} /genuine \textcolor{blue}{\textbf{(blue)}} score repartition.
+On the left : unknown key scenario.
+On the right : stolen key scenario.}
+\label{tab:original_genuine}
+\end{figure}
+\FloatBarrier
+
+\subsubsection{On-card matching}
+There is a similar behaviour with the on-card matching, but it is more visible than in the original algorithm. This is certainly due to the precision loss occurring during the computation of the matching scores. It is also visible that the genuine scores are more spread than in the previous algorithm, leading to a larger standard deviation (see \texttt{Section \ref{std}} for detailed statistics).
+\begin{figure}[!htbp]
+\centering
+ \includegraphics[width=7cm,height=5cm]{./figures/final_histo/genknown_impunknown.jpg}\includegraphics[width=7cm,height=5cm]{./figures/final_histo/genknown_impknown.jpg}\\
+
+\caption{On-card matching - Histograms of imposters \textcolor{red}{(\textbf{red})} /genuine \textcolor{blue}{\textbf{(blue)}} score repartition.
+On the left : unknown key scenario.
+On the right : stolen key scenario.}
+\label{tab:mcc_eer}
+\end{figure}
+
+\subsection{False match rate (\texttt{FMR}) and False non-match rate (\texttt{FNMR})}
+An alternative way to see the separation between the distribution of genuine and imposter scores is the \texttt{DET}\footnote{Detection error tradeoff} curve which describes the rate of \texttt{FNMR} for a certain \texttt{FMR} (and vice versa). The \texttt{DET} curves below are built on the same samples used in the previous section. The red line represents the Equal Error Rate (\texttt{EER}), i.e. the rate where the \texttt{FNMR} and the \texttt{FMR} are equal. The \texttt{FMR1000}, \texttt{FMR100} and \texttt{FMR10} lines represent the corresponding \texttt{FNMR} for 1\textperthousand, 1\% and 10\% \texttt{FMR}.
+\subsubsection{Original matching algorithm}
+
+On the left part of \texttt{Figure \ref{tab:mcc_roc}} the \texttt{DET} curve is constantly decreasing. This implies that as the \texttt{FNMR} grows, the \texttt{FMR} decreases and vice versa. For example, at the crossing of the \texttt{FMR1000} line and the \texttt{DET} curve, the corresponding \texttt{FNMR} for a \texttt{FMR} of 0.1\% is about 10\%, meaning that 1 out of 1000 imposters are falsely accepted but a genuine user is falsely rejected 1 out of 10 times. If a system requires fast authentication (i.e. \texttt{FNMR} of 1\%), the \texttt{FMR} ratio is 1 (every imposter is accepted) and this scenario is not secure at all. A good compromise is to fix the matching score threshold such that the \texttt{FMR} and \texttt{FNMR} are equal (\texttt{EER}). On the right part, where imposters steal the transformation key from the smart card, when the \texttt{FMR} grows, the \texttt{FNMR} diminishes slower than on the left part. This shows the importance of protecting the transformation key on the smart card\footnote{Key encryption is discussed in \texttt{Section \ref{keyencryption}}.}.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=7cm,height=5cm]{./figures/mcc_original_roc/genknown_impunknown.jpg}
+\includegraphics[width=7cm,height=5cm]{./figures/mcc_original_roc/genknown_impknown.jpg}
+\caption{Original matching - \texttt{DET} \textcolor{blue}{(\textbf{blue})} and \texttt{EER} \textcolor{red}{\textbf{(red)}}.
+On the left : unknown key scenario.
+On the right : stolen key scenario.}
+\label{tab:mcc_roc}
+\end{figure}
+\FloatBarrier
+
+\subsubsection{On-card matching}
+The left sub-figure of \texttt{Figure \ref{final_roc}} shows surprisingly good results. Indeed, as the \texttt{FNMR} grows, the \texttt{FMR} drops to zero very quickly. For example, when the \texttt{FNMR} reaches 9\%, the \texttt{FMR} is at about 0.4\%, and when it reaches 15\%, the \texttt{FMR} is exactly 0\%. The consequence is that a highly secured authentication can be built over this model by setting the threshold value so that it produces a \texttt{FNMR} of 15\%. Genuine users will be more likely to be falsely rejected but no imposter will be falsely accepted, thus offering the best security protection. On the other hand, the scenario of stolen key (right part of this table) gives somehow really bad results. The \texttt{EER} is greater than on the left and for a \texttt{FNRM} between 0.1\% and 1\%, the \texttt{FMR} lays between 50\% and 100\%. No safe system can be built in this scenario, and this enforces again the idea that the key needs to be encrypted on the card.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=7cm,height=5cm]{./figures/final_roc/genknown_impunknown.jpg}
+\includegraphics[width=7cm,height=5cm]{./figures/final_roc/genknown_impknown.jpg}\\
+\caption{On-card matching - \texttt{DET} \textcolor{blue}{(\textbf{blue})} and \texttt{EER} \textcolor{red}{\textbf{(red)}}.
+On the left : unknown key scenario.
+On the right : stolen key scenario.}
+\label{final_roc}
+\end{figure}
+\FloatBarrier
+
+The whole process (applet selection, templates upload, matching) takes in average less than 4 seconds (see \texttt{Table \ref{tab:speed}}). The template verification takes up to 2 seconds, which is really fast. To this value we must add the fingerprint scanning time and the feature extraction, which will be highly dependant on the type of devices used.
+% Table generated by Excel2LaTeX from sheet 'Sheet1'
+\begin{table}[htbp]
+  \centering
+  	\scalebox{0.9}{
+    \begin{tabular}{lcccccccc}
+    \toprule
+    Card connection & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} & \multicolumn{1}{c}{49} \\
+    Enrolment template uploading & \multicolumn{1}{c}{2008} & \multicolumn{1}{c}{2049} & \multicolumn{1}{c}{2049} & \multicolumn{1}{c}{1900} & \multicolumn{1}{c}{2058} & \multicolumn{1}{c}{2049} & \multicolumn{1}{c}{1949} & \multicolumn{1}{c}{2051} \\
+    Verification template uploading & \multicolumn{1}{c}{1902} & \multicolumn{1}{c}{1500} & \multicolumn{1}{c}{1900} & \multicolumn{1}{c}{1951} & \multicolumn{1}{c}{1751} & \multicolumn{1}{c}{1552} & \multicolumn{1}{c}{1999} & \multicolumn{1}{c}{1999} \\
+    Matching & \multicolumn{1}{c}{93} & \multicolumn{1}{c}{94} & \multicolumn{1}{c}{95} & \multicolumn{1}{c}{90} & \multicolumn{1}{c}{94} & \multicolumn{1}{c}{92} & \multicolumn{1}{c}{94} & \multicolumn{1}{c}{86} \\
+          &       &       &       &       &       &       &       &  \\
+	\midrule    
+    \textbf{Total} & \multicolumn{1}{c}{\textbf{4052}} & \multicolumn{1}{c}{\textbf{3692}} & \multicolumn{1}{c}{\textbf{4093}} & \multicolumn{1}{c}{\textbf{3990}} & \multicolumn{1}{c}{\textbf{3952}} & \multicolumn{1}{c}{\textbf{3742}} & \multicolumn{1}{c}{\textbf{4091}} & \multicolumn{1}{c}{\textbf{4185}} \\
+    \bottomrule
+    \end{tabular}%
+    }
+    \caption{Speed measures (in milliseconds) for 8 random genuine fingerprint matching}
+  \label{tab:speed}%
+\end{table}%
+\FloatBarrier
+\newpage
+
+\subsection{Performance comparison}
+\label{std}
+% Table generated by Excel2LaTeX from sheet 'Sheet1'
+The results presented in \texttt{Table \ref{tab:deviation}} show some detailed statistics about the score repartition for both algorithms and both scenarios (unknown/stolen key). The statistics are quite identical for both original and on-card algorithms but it is noticeable that for the on-card algorithm, the means of both genuine and imposter scores (unkown key) are more spaced than in the original algorithm. This leads to a better class separation between imposter and genuine scores and thus gives a better accuracy.
+
+\begin{table}[htbp]
+  \centering
+    \begin{tabular}{ccccccccc}
+    \toprule
+          & \multicolumn{2}{c}{\multirow{2}[0]{*}{Genuine}} & \multicolumn{4}{c}{Imposters} \\
+    
+          & \multicolumn{2}{c}{} & \multicolumn{2}{c}{\textit{Unknown key}} & \multicolumn{2}{c}{\textit{stolen key}} \\
+          \midrule
+          & \textbf{mean} & \textbf{deviation} & \textbf{mean} & \textbf{deviation} & \textbf{mean} & \textbf{deviation} \\
+    \textbf{Original} & 0.53  & 0.11  & 0.37  & 0.05  & 0.41  & 0.05 \\
+    \textbf{On-card} & 0.56  & 0.09  & 0.34  & 0.04  & 0.44  & 0.04 \\
+    \bottomrule
+    \end{tabular}%
+  
+  \caption{Mean and standard deviation of the score distributions for on-card matching and original algorithm}
+  \label{tab:deviation}%
+\end{table}%
+\FloatBarrier
+
+\texttt{Table 10} maps fixed \texttt{FMR} values to their corresponding \texttt{FNMR}. For example, with the original algorithm, a 10\% \texttt{FMR} leads to 5.34\% \texttt{FNMR}. This means that a genuine user's access is unlikely denied but on the other hand, 1 out of 10 imposters' fingerprint are accepted by this algorithm. If the imposter can steal the key, the \texttt{FNMR} raises to 11.52\%.\\\\
+Better results for the on-card matching technique can be read on the right part of this table, especially for a \texttt{FMR} of 0.1\% that gives 7.55\% \texttt{FNMR} for the original algorithm and 6.71\% \texttt{FNMR} for the Java Card version. These values are a great indicator for the security analysis of the implementation. If a system does not tolerate any unauthorized access, the threshold used to determine if the score is genuine or not is bigger. This reduces the \texttt{FMR} at a very small rate but then genuine users are more often rejected by the system. On the other hand, if a system needs fast authentication, this threshold is fixed to a smaller value, thus reducing the \texttt{FNMR} and raising the \texttt{FMR}.
+
+\begin{table}[htbp]
+\begin{minipage}[b]{0.45\linewidth}
+  \centering
+    \begin{tabular}{rrrr}
+    \multicolumn{4}{c}{Original algorithm}\\
+    \toprule
+    \multicolumn{2}{c}{Unknown key} & \multicolumn{2}{c}{Stolen key} \\
+    
+    \textbf{FMR} & \textbf{FNMR} & \textbf{FMR} & \textbf{FNMR} \\
+\midrule    
+    10\%  & 5.34\% & 10\%  & 11.52\% \\
+    1\%   & 7.07\% & 1\%   & 19.34\% \\
+    0.10\% & 7.55\% & 0.10\% & 21.55\% \\
+    \bottomrule
+    \multicolumn{2}{c}{EER : 6.41\%} & \multicolumn{2}{c}{EER : 11.97\%} \\
+    \end{tabular}%
+\end{minipage}
+	\hspace{0.5cm}
+\begin{minipage}[b]{0.45\linewidth}
+  \centering
+    \begin{tabular}{rrrr}
+     \multicolumn{4}{c}{Java Card implementation}\\
+    \toprule
+    \multicolumn{2}{c}{Unknown key} & \multicolumn{2}{c}{Stolen key} \\
+    
+    \textbf{FMR} & \textbf{FNMR} & \textbf{FMR} & \textbf{FNMR} \\
+\midrule    
+    10\%  & 4.00\% & 10\%  & 23.29\% \\
+    1\%   & 5.86\% & 1\%   & 32.71\% \\
+    0.10\% & 6.71\% & 0.10\% & 37.00\% \\
+    \bottomrule
+        \multicolumn{2}{c}{EER : 4.63\%} & \multicolumn{2}{c}{EER : 19.34\%} \\
+
+    \end{tabular}%
+  
+  	
+  \end{minipage}
+  
+  \caption{\texttt{FNMR} values for fixed \texttt{FMR} rates for two scenarios (unkown and stolen key)}
+  \label{eer}%
+\end{table}%
+
+\newpage
+\section{Conclusion}
+\subsection{State of the project}
+As it is explained in the introduction of this report, the main purpose of this project was to investigate the feasibility of an accurate on-card matching technique built in a smart card's chip. In the view of the previous results and performances, it is noticeable that this goal is successfully reached. However, enhancements are still needed to build a professional solution and a non-exhaustive list of future improvements is suggested in the \texttt{Section \ref{improvements}}.
+
+\subsection{Future directions}
+\label{improvements}
+\subsubsection{Testing on real hardware}
+During this project, the opportunity to test the fingerprint matching on a real smart card did not present itself since the laboratory\footnote{\texttt{LIDIAP}, \texttt{IDIAP} laboratory at \texttt{EPFL} - http://idiap.epfl.ch/} did not own such devices\footnote{There is several website on which it is possible to acquire such devices.\\The company \texttt{Gemalto}, for example, sells Java cards (http://smartware2u.com/category/1-contact-smart-cards.aspx) and Java card readers with integrated fingerprint scanner (http://smartware2u.com/category/2-contact-smart-card-readers.aspx?pageindex=2)}. The hardware needed is a fingerprint reader, a card acceptance device linked to a computer and some smart cards.\\\\
+Despite the fact that the project is compatible with Java Card 2.2, it does not imply that it will be compatible with a real smart card as it is. Indeed, the deployment will be highly dependent of the smart card's firmware specifications.
+
+\subsubsection{Precision loss}
+As it is explained in \texttt{Section \ref{section:lss}}, precision losses occur due to the absence of floating-point in a smart card device. There is another solution to overcome this limitation by manually implementing floating-point values following the standard way of expressing real values in a computer \cite{isofloatingpoints}. With this implementation, it is possible to perfectly match the performance of the original algorithm. However, this will lead to more memory consumption and further analyses are needed to see if this solution is suitable for smart card chips.
+
+
+\subsubsection{Encryption of the biometric template and minutiae}
+Transformed templates are assumed to be irreversible, so even if an attacker can steal information from the card, he will not be able to reconstruct the original fingerprint from it. Another sensitive data stored on the card is the minutiae angular directions. If a fully secured system is required, a layer of encryption needs to be implemented. An asymmetric encryption method (such as \texttt{RSA} encryption) seems specifically well suited for such an application. Furthermore, the Java Card environment provides utility functions for \texttt{RSA} encoding and its deployment should not be a difficult task.
+\subsubsection{Encryption of the transformation key}
+\label{keyencryption}
+As illustrated in \texttt{Section \ref{results}}, the results are not satisfying if an attacker manages to extract the key from the smart card. In order to build a secure system we absolutely need to encrypt this key and \texttt{RSA} seems to be a good fit for this purpose.
+
+
+\subsubsection{Fine tuning parameters}
+\label{tuning}
+Throughout the whole project, assumptions were made and empirical values were chosen, such as the precision parameter introduced in \texttt{Section \ref{section:lss}} or the template protection algorithm parameters. By introducing machine learning concepts, parameters can be chosen in an optimal way to produce better results. Since the matching process opposes two fingerprints, it should be possible to use a Multi-layered Perceptron for binary classification \cite{perceptron}.
+\subsection{Personal conclusion}
+Since my first year at \texttt{EPFL}, I was really concerned and interested in biometrics recognition. From a personal point of view, I find this project really interesting but also really challenging. I had no experience in smart card programming before and thus had to go through a lot of literature to get a small draft project working on the simulator. I learned that programming for chip cards is a meticulous process and does not tolerate any mistakes.\\\\
+Finally, the results of the tests on the \texttt{FVC} databases are very encouraging and better than imagined. In fact, it was not even certain that an implementation on a smart card was possible at all in the beginning of the project, due to the numerous limitations of the Java Card environment.\\\\
+\newpage
+
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{rapport}
+\newpage
+
+\appendix
+\section{Appendices}
+\counterwithin{figure}{subsection}
+
+\subsection{Precision parameter}
+\begin{figure}[!htbp]
+    \center
+    \includegraphics[scale=0.65]{./figures/threshold}
+    \caption{Plot of FNMR/FMR of imposters/genuine test for different values of precision to find the best parameter (here : 1550)}
+    \label{threshold}
+\end{figure}
+
+\newpage
+\subsection{Classes \texttt{UML}\protect\footnote{Unified Modelling Language}}
+\begin{figure}[!htbp]
+    \center
+    \includegraphics[scale=0.65]{./figures/cardUmlGraph}
+    \caption{\texttt{UML} graph of the smart card application. The main class is \texttt{MonApplet.java}, it handles the APDU exchanges with the card reader and store the data received (minutiae and protected templates). \texttt{Util.java} offers convenient function for handling short and byte values. \texttt{LSSMatcher.java} performs the template matching.}
+    \label{card}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \center
+    \includegraphics[scale=0.65]{./figures/readerBiometricsUmlGraph}
+    \caption{Java classes of the biometrics package implemented on the card reader. The \texttt{Minutia} class holds information on minutia direction and spatial location. \texttt{ReadMinutiaFromISOFile} is the feature extractor and \texttt{MCCBase} handles the template privacy protection}
+    \label{biometrics}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \center
+    \includegraphics[scale=0.65]{./figures/readerClietnUmlGraph}
+    \caption{\texttt{JavaCardReader} represents the card acceptance device. It basically acquires a template (from a fingerprint scanner, for example) and send it to the card for fingerprint matching. It can also enrol a user's biometrics data on the smart card.}
+    \label{javacardreader}
+\end{figure}
+
+
+\end{document}

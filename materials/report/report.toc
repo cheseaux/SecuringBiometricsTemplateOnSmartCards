@@ -1,0 +1,41 @@
+\select@language {english}
+\contentsline {section}{\numberline {1}Introduction}{4}
+\contentsline {section}{\numberline {2}Background}{5}
+\contentsline {subsection}{\numberline {2.1}Recognition chain}{5}
+\contentsline {subsubsection}{\numberline {2.1.1}Minutiae Cylinder-Code (\texttt {MCC})}{5}
+\contentsline {subsubsection}{\numberline {2.1.2}Template transformation}{5}
+\contentsline {subsubsection}{\numberline {2.1.3}Template matching}{7}
+\contentsline {subsection}{\numberline {2.2}Using smart cards for recognition}{7}
+\contentsline {subsubsection}{\numberline {2.2.1}Smart card specifications}{7}
+\contentsline {subsubsection}{\numberline {2.2.2}Communication protocol}{8}
+\contentsline {subsubsection}{\numberline {2.2.3}Smart card simulator}{9}
+\contentsline {subsubsection}{\numberline {2.2.4}Java Card programming environment}{9}
+\contentsline {paragraph}{\numberline {2.2.4.1}Library limitations}{9}
+\contentsline {section}{\numberline {3}Materials and methods}{11}
+\contentsline {subsection}{\numberline {3.1}Hardware}{11}
+\contentsline {subsubsection}{\numberline {3.1.1}Set-up connection to the card (simulator)}{11}
+\contentsline {subsubsection}{\numberline {3.1.2}Data transfer to the card}{12}
+\contentsline {subsection}{\numberline {3.2}Software}{12}
+\contentsline {subsubsection}{\numberline {3.2.1}\texttt {LSS} algorithm for Java Card environment}{12}
+\contentsline {subsubsection}{\numberline {3.2.2}How to use the developed program}{13}
+\contentsline {section}{\numberline {4}Results}{14}
+\contentsline {subsection}{\numberline {4.1}Test database}{14}
+\contentsline {subsection}{\numberline {4.2}Imposters/Genuine scores}{14}
+\contentsline {subsubsection}{\numberline {4.2.1}Original recognition algorithm}{15}
+\contentsline {subsubsection}{\numberline {4.2.2}On-card matching}{15}
+\contentsline {subsection}{\numberline {4.3}False match rate (\texttt {FMR}) and False non-match rate (\texttt {FNMR})}{15}
+\contentsline {subsubsection}{\numberline {4.3.1}Original matching algorithm}{16}
+\contentsline {subsubsection}{\numberline {4.3.2}On-card matching}{16}
+\contentsline {subsection}{\numberline {4.4}Performance comparison}{18}
+\contentsline {section}{\numberline {5}Conclusion}{19}
+\contentsline {subsection}{\numberline {5.1}State of the project}{19}
+\contentsline {subsection}{\numberline {5.2}Future directions}{19}
+\contentsline {subsubsection}{\numberline {5.2.1}Testing on real hardware}{19}
+\contentsline {subsubsection}{\numberline {5.2.2}Precision loss}{19}
+\contentsline {subsubsection}{\numberline {5.2.3}Encryption of the biometric template and minutiae}{19}
+\contentsline {subsubsection}{\numberline {5.2.4}Encryption of the transformation key}{20}
+\contentsline {subsubsection}{\numberline {5.2.5}Fine tuning parameters}{20}
+\contentsline {subsection}{\numberline {5.3}Personal conclusion}{20}
+\contentsline {section}{\numberline {A}Appendices}{21}
+\contentsline {subsection}{\numberline {A.1}Precision parameter}{21}
+\contentsline {subsection}{\numberline {A.2}Classes \texttt {UML}\footnote {Unified Modelling Language}}{22}

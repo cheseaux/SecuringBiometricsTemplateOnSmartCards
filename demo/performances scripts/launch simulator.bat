@@ -1,0 +1,1 @@
+jcwde -p 8766 "../sources/SmartCardDevice/bin/monapplet.app"
